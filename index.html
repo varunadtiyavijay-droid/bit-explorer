@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bit-Explorer Super App</title>
+    <link rel="manifest" href="manifest.json">
+    <style>
+        :root { --bg: #f0f4f8; --card: #ffffff; --text: #1a202c; --accent: #3182ce; --border: #e2e8f0; }
+        .dark-mode { --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --accent: #38bdf8; --border: #334155; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; transition: 0.4s; padding: 20px; box-sizing: border-box; }
+        .app { background: var(--card); padding: 25px; border-radius: 28px; box-shadow: 0 20px 50px rgba(0,0,0,0.1); width: 100%; max-width: 420px; border: 1px solid var(--border); text-align: center; z-index: 5; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        input { width: 100%; padding: 16px; border-radius: 14px; border: 2px solid var(--border); background: var(--card); color: var(--text); box-sizing: border-box; margin-bottom: 10px; outline: none; font-size: 1rem; }
+        .btn-main { width: 100%; padding: 16px; border-radius: 14px; border: none; background: var(--accent); color: white; font-weight: 700; cursor: pointer; }
+        #output { margin-top: 15px; padding: 15px; border-radius: 12px; background: rgba(0,0,0,0.02); border-left: 5px solid var(--accent); text-align: left; min-height: 60px; line-height: 1.5; position: relative; }
+        canvas { display: none; width: 100%; background: #000; border-radius: 16px; margin-top: 15px; }
+        #sidebar { position: fixed; left: -280px; top: 0; width: 260px; height: 100%; background: var(--card); box-shadow: 5px 0 15px rgba(0,0,0,0.1); transition: 0.3s; z-index: 1000; padding: 25px; box-sizing: border-box; }
+        #sidebar.open { left: 0; }
+        .tool-btn { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: none; color: var(--text); cursor: pointer; text-align: left; font-weight: 600; }
+        #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; backdrop-filter: blur(2px); }
+    </style>
+</head>
+<body>
+    <div id="overlay" onclick="toggleSidebar()"></div>
+    <div id="sidebar">
+        <h2 style="margin-top:0">🧰 Toolkit</h2>
+        <button class="tool-btn" onclick="toggleTheme()">🌓 Change Theme</button>
+        <button class="tool-btn" onclick="startBitGame()">🎮 Start Bit-Game</button>
+        <button class="tool-btn" onclick="saveToDevice()">💾 Save Discovery</button>
+        <button class="tool-btn" onclick="toggleSidebar()" style="margin-top:20px; border-color:#ff4757; color:#ff4757">Close Menu</button>
+    </div>
+
+    <div class="app">
+        <div class="header">
+            <button onclick="toggleSidebar()" style="background:none; border:none; font-size:1.8rem; cursor:pointer;">☰</button>
+            <div id="greeting" style="font-weight:bold; color:var(--accent)">Hello!</div>
+            <div id="weather" style="font-size:0.8rem">☁️ --°C</div>
+        </div>
+        <h1>Bit-Explorer</h1>
+        <input type="text" id="ui" placeholder="AI [question], topic, or URL...">
+        <button class="btn-main" onclick="runExplorer()">EXPLORE</button>
+        <canvas id="cvs" width="400" height="150"></canvas>
+        <div id="output">Welcome! Use 'AI' to talk to the brain, or search a topic like 'Space'.</div>
+    </div>
+
+    <script>
+        // --- CONFIG & DATA ---
+        // PASTE YOUR HUGGING FACE TOKEN BELOW INSTEAD OF THE TEXT
+        const API_TOKEN = "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"; 
+
+        const topics = {
+            "space": ["Venus days are longer than its years.", "Space is silent."],
+            "tech": ["First mouse was wood.", "90% of money is digital."],
+            "animals": ["Shrimp hearts are in their heads.", "Snails can sleep for 3 years."]
+        };
+
+        // --- CORE FUNCTIONS ---
+        function typeWriter(text, i = 0) {
+            const out = document.getElementById('output');
+            if (i === 0) out.innerHTML = "";
+            if (i < text.length) {
+                out.innerHTML += text.charAt(i);
+                setTimeout(() => typeWriter(text, i + 1), 30);
+            }
+        }
+
+        async function askAI(query) {
+            document.getElementById('output').innerText = "🤖 Thinking...";
+            try {
+                const res = await fetch("https://api-inference.huggingface.co", {
+                    headers: { Authorization: `Bearer ${API_TOKEN}` },
+                    method: "POST",
+                    body: JSON.stringify({ inputs: query }),
+                });
+                const data = await res.json();
+                typeWriter("🤖 AI: " + (data.generated_text || "I'm lost in thought. Try again?"));
+            } catch { typeWriter("🤖 Offline: I can't reach my brain servers!"); }
+        }
+
+        async function runExplorer() {
+            const ui = document.getElementById('ui'), val = ui.value.trim(), out = document.getElementById('output');
+            const cmd = val.toLowerCase();
+            document.getElementById('cvs').style.display = "none"; playing = false;
+
+            if (cmd.startsWith("ai ")) return askAI(val.substring(3));
+            if (val.includes(".") && !val.includes(" ")) return window.open(val.startsWith("http") ? val : "https://" + val, "_blank");
+            
+            if (topics[cmd]) typeWriter(`[${cmd.toUpperCase()}] ${topics[cmd][Math.floor(Math.random()*topics[cmd].length)]}`);
+            else if (val !== "") window.open(`https://www.google.com{encodeURIComponent(val)}`, "_blank");
+            
+            ui.value = "";
+        }
+
+        // --- UI & GAME ---
+        function toggleSidebar() { 
+            const sb = document.getElementById('sidebar');
+            const ov = document.getElementById('overlay');
+            sb.classList.toggle('open');
+            ov.style.display = sb.classList.contains('open') ? 'block' : 'none';
+        }
+        function toggleTheme() { document.body.classList.toggle('dark-mode'); toggleSidebar(); }
+        function saveToDevice() { 
+            const blob = new Blob([document.getElementById('output').innerText], {type: "text/plain"});
+            const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "discovery.txt"; a.click();
+        }
+
+        let playing=false, py=120, jv=0, ox=400, score=0;
+        function startBitGame() { playing=true; ox=400; score=0; document.getElementById('cvs').style.display="block"; toggleSidebar(); loop(); }
+        function loop() {
+            if(!playing) return;
+            const c=document.getElementById('cvs'), x=c.getContext('2d');
+            x.clearRect(0,0,400,150);
+            if(py<120 || jv!=0) { py+=jv; jv+=0.8; if(py>=120) {py=120; jv=0;} }
+            ox-=6; if(ox<-20) {ox=400; score++;}
+            x.fillStyle="#3182ce"; x.fillRect(50,py,20,20);
+            x.fillStyle="#f56565"; x.fillRect(ox,120,20,20);
+            if(ox<70 && ox>30 && py>100) { playing=false; typeWriter("💥 Final Score: "+score); }
+            else requestAnimationFrame(loop);
+        }
+        document.getElementById('cvs').addEventListener('mousedown', () => {if(py===120) jv=-12;});
+        
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>
